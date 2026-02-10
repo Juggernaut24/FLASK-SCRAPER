@@ -35,8 +35,14 @@ def country_scraper(query=None):
                 population = get_safe_text(count, "span", "country-population")
                 area = get_safe_text(count, "span", "country-area")
 
-                if query and query.lower() not in name.lower():
-                    continue
+                if query:
+                    q = query.lower()
+                    match = (q in name.lower() or 
+                            q in capital.lower() or 
+                            q in population.lower() or 
+                            q in area.lower())
+                    if not match:
+                        continue
 
                 results.append({
                     "name": name,
