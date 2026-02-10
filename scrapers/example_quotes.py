@@ -1,6 +1,6 @@
 import time
-import requests # Skal pip installeres
-from bs4 import BeautifulSoup # Skal pip installeres
+import requests
+from bs4 import BeautifulSoup
 
 def scrape_quotes(query=None):
     """

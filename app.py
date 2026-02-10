@@ -2,7 +2,8 @@ import os # Built-in
 import json # Built-in
 from datetime import datetime # Built-in
 from flask import Flask, render_template, request # Skal pip installeres
-from scrapers.scrapers import scrape_quotes # Vi importerer funktionen fra vores anden fil
+from scrapers.example_quotes import scrape_quotes # Vi importerer funktionen fra vores anden fil
+from scrapers.mandag_books import scrape_books
 
 app = Flask(__name__)
 
@@ -24,6 +25,8 @@ def index():
         if scraper_choice == 'quotes':
             data = scrape_quotes(user_query)
         # Her ville du tilføje `elif scraper_choice == 'books': ...`
+        elif scraper_choice == 'books':
+            data = scrape_books(user_query)
         else:
             data = {
                 "source": "Ukendt", 
