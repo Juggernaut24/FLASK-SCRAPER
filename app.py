@@ -4,6 +4,7 @@ from datetime import datetime # Built-in
 from flask import Flask, render_template, request # Skal pip installeres
 from scrapers.example_quotes import scrape_quotes # Vi importerer funktionen fra vores anden fil
 from scrapers.mandag_books import scrape_books
+from scrapers.tirsdag_books import scrape_books_advanced
 
 app = Flask(__name__)
 
@@ -27,6 +28,8 @@ def index():
         # Her ville du tilføje `elif scraper_choice == 'books': ...`
         elif scraper_choice == 'books':
             data = scrape_books(user_query)
+        elif scraper_choice == 'books advanced':
+            data = scrape_books_advanced(user_query)
         else:
             data = {
                 "source": "Ukendt", 

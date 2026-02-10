@@ -1,158 +1,141 @@
-import requests
-from bs4 import BeautifulSoup
-import json
 import time
-import os
-from urllib.parse import urljoin
+import requests
 import re
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
-BASE_URL = "https://books.toscrape.com/"
-OUTPUT_DIR = "outputs"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "books_bs4.json")
-
+# --- Konfiguration ---
 CATEGORIES = [
     "https://books.toscrape.com/catalogue/category/books/historical_42/index.html",
-    "https://books.toscrape.com/catalogue/category/books/historical_42/index.html",
     "https://books.toscrape.com/catalogue/category/books/travel_2/index.html",
-    "https://books.toscrape.com/catalogue/category/books/classics_6/index.html",
-    "https://books.toscrape.com/catalogue/category/books/historical-fiction_4/index.html",
+    "https://books.toscrape.com/catalogue/category/books/classics_6/index.html"
 ]
 
-rating_map = {
-    "One": 1,
-    "Two": 2,
-    "Three": 3,
-    "Four": 4,
-    "Five": 5
-}
+RATING_MAP = { "One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5 }
 
 def get_soup(url):
+    """Hjælpefunktion til at hente suppe sikkert"""
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        response.encoding = 'utf-8'
-
-        return BeautifulSoup(response.text, "html.parser")
-
-    except requests.RequestException as e:
-        print(f"Fejl ved hentning af {url}: {e}")
-        return None
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            response.encoding = 'utf-8'
+            return BeautifulSoup(response.text, "html.parser")
+    except Exception:
+        pass
+    return None
 
 def scrape_book_details(book_url):
+    """Går ind på detaljesiden og henter ekstra info"""
     soup = get_soup(book_url)
     if not soup:
-        return {
-            "description": None,
-            "upc": None,
-            "availability": None
-        }
+        return {"description": "Fejl", "upc": "N/A", "availability": 0}
     
-    description_elem = soup.select_one("#product_description ~ p")
-    description = description_elem.text.strip() if description_elem else None
+    # Hent beskrivelse
+    desc_elem = soup.select_one("#product_description ~ p")
+    description = desc_elem.text.strip() if desc_elem else "Ingen beskrivelse"
 
-    upc = None
-    availability = None
+    # Hent tabeldata (UPC og Lager)
+    upc = "Ukendt"
+    availability = 0
+    
+    for row in soup.select("table.table-striped tr"):
+        header = row.find("th").text
+        value = row.find("td").text
+        
+        if header == "UPC":
+            upc = value
+        elif header == "Availability":
+            numbers = re.findall(r'\d+', value)
+            availability = int(numbers[0]) if numbers else 0
 
-    table_rows = soup.select("table.table-striped tr")
-    for row in table_rows:
-        header_tag = row.find("th")
-        value_tag = row.find("td")
+    return {"description": description, "upc": upc, "availability": availability}
 
-        if header_tag and value_tag:
-            header = header_tag.text
-            value_text = value_tag.text
+def scrape_books_advanced(query=None):
+    """
+    Hovedfunktion til Flask.
+    Scraper kategorier -> lister -> detaljesider.
+    """
+    start_time = time.time()
+    results = []
+    errors = []
+    seen_upcs = set()
+    
+    # SIKKERHEDSGRÆNSE: Stopper efter 15 bøger for at undgå timeout i browseren
+    MAX_BOOKS = 15 
 
-            if header == "UPC":
-                upc = value_text
-            elif header == "Availability":
-                numbers = re.findall(r'\d+', value_text)
+    try:
+        for category_url in CATEGORIES:
+            if len(results) >= MAX_BOOKS: 
+                break
+                
+            current_url = category_url
+            
+            # Loop gennem sider i kategorien
+            while current_url and len(results) < MAX_BOOKS:
+                soup = get_soup(current_url)
+                if not soup:
+                    errors.append(f"Kunne ikke læse: {current_url}")
+                    break
 
-                if numbers:
-                    availability = int(numbers[0])
+                articles = soup.select("article.product_pod")
+                
+                for article in articles:
+                    if len(results) >= MAX_BOOKS: 
+                        break
+
+                    try:
+                        # 1. Hent info fra listevisning
+                        title = article.h3.a["title"]
+                        price = article.select_one(".price_color").text
+                        
+                        rating_class = article.select_one(".star-rating")["class"]
+                        rating = RATING_MAP.get(rating_class[1], 0) if len(rating_class) > 1 else 0
+                        
+                        detail_rel_link = article.h3.a["href"]
+                        detail_url = urljoin(current_url, detail_rel_link)
+
+                        # Simpel søgning (hvis brugeren har indtastet noget)
+                        if query and query.lower() not in title.lower():
+                            continue
+
+                        # 2. Gå ind på detaljesiden (Dette tager tid!)
+                        # time.sleep(0.2) # Lille pause for at være høflig
+                        details = scrape_book_details(detail_url)
+
+                        # 3. Dedup check
+                        if details["upc"] in seen_upcs:
+                            continue
+                        seen_upcs.add(details["upc"])
+
+                        # 4. Gem data
+                        results.append({
+                            "Titel": title,
+                            "Pris": price,
+                            "Rating": f"{rating}/5",
+                            "Lager": details["availability"],
+                            "UPC": details["upc"],
+                            # "Beskrivelse": details["description"][:50] + "..." # Korter beskrivelsen af
+                        })
+
+                    except Exception as e:
+                        errors.append(f"Fejl ved bog: {str(e)}")
+
+                # Find næste side i kategorien
+                next_btn = soup.select_one("li.next a")
+                if next_btn:
+                    current_url = urljoin(current_url, next_btn["href"])
                 else:
-                    availability = 0
+                    current_url = None
+
+    except Exception as e:
+        errors.append(f"Kritisk fejl: {str(e)}")
+
+    runtime_ms = int((time.time() - start_time) * 1000)
 
     return {
-        "description": description,
-        "upc": upc,
-        "availability": availability
+        "source": "Advanced Books Scraper (Detail Pages)",
+        "query": query if query else "Kategorier (Max 15 bøger)",
+        "runtime_ms": runtime_ms,
+        "results": results,
+        "errors": errors
     }
-
-def scrape_category(category_path, seen_upcs):
-    books_data = []
-    current_url = category_path
-
-    while current_url:
-        print(f"Scraping listing page: {current_url}")
-        soup = get_soup(current_url)
-        if not soup:
-            break
-
-        articles = soup.select("article.product_pod")
-
-        for article in articles:
-            title = article.h3.a["title"]
-
-            price = article.select_one(".price_color").text
-
-            rating_class = article.select_one(".star-rating")["class"]
-            rating_text = rating_class[1] if len(rating_class) > 1 else "Unknown"
-            rating = rating_map.get(rating_text, 0)
-
-            relative_link = article.h3.a["href"]
-            detail_url = urljoin(current_url, relative_link)
-            print(f" --> Navigating to details: {title[:30]}...")
-            details = scrape_book_details(detail_url)
-
-            current_upc = details["upc"]
-
-            if current_upc in seen_upcs:
-                print("Duplicate found...skipping")
-                continue
-
-            if current_upc:
-                seen_upcs.add(current_upc)
-
-            book_info = {
-                "title": title,
-                "price": price,
-                "rating": rating,
-                "detail_url": detail_url,
-                "description": details["description"],
-                "upc": details["upc"],
-                "availability": details["availability"]
-            }
-
-            books_data.append(book_info)
-            time.sleep(0.2)
-
-        next_button = soup.select_one("li.next a")
-        if next_button:
-            next_page_relative = next_button["href"]
-
-            current_url = urljoin(current_url, next_page_relative)
-        else:
-            current_url = None
-
-    return books_data
-
-def main():
-    all_books = []
-
-    seen_upcs = set()
-
-    for category in CATEGORIES:
-        print(f"--- Starting Category: {category} ---")
-        books = scrape_category(category, seen_upcs)
-        all_books.extend(books)
-
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_books, f, indent=4, ensure_ascii=False)
-
-    print(f"Done! {len(all_books)} books saved to {OUTPUT_FILE}")
-
-if __name__ == "__main__":
-    main()
