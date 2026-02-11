@@ -8,6 +8,9 @@ from selenium.webdriver.chrome.options import Options
 
 def get_brave_driver():
     options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("window-size=1920,1080")
     options.binary_location = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
     driver = webdriver.Chrome(options=options)
     return driver
