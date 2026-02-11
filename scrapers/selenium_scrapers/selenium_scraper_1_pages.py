@@ -66,7 +66,6 @@ def scrape_quotes_selenium(query=None):
         if 'driver' in locals():
             driver.quit()
 
-
     print(f"Total quotes found and saved: {len(data)}")
 
     runtime_ms = int((time.time()- start_time) * 1000)
@@ -80,4 +79,4 @@ def scrape_quotes_selenium(query=None):
     }
 
 if __name__ == "__main__":
-    print(scrape_quotes_selenium("seuss"))
+    print(scrape_quotes_selenium())
