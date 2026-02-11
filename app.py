@@ -7,6 +7,7 @@ from scrapers.mandag_books import scrape_books
 from scrapers.tirsdag_books import scrape_books_advanced
 from scrapers.country_scraper import country_scraper
 from scrapers.selenium_scrapers.selenium_scraper_1_pages import scrape_quotes_selenium
+from scrapers.selenium_scrapers.selenium_scraper_3_scroll import scrape_infinite_scroll
 
 app = Flask(__name__)
 
@@ -15,7 +16,8 @@ SCRAPERS = {
     'books': scrape_books,
     'books advanced': scrape_books_advanced,
     'country': country_scraper,
-    'selenium_quotes': scrape_quotes_selenium
+    'selenium quotes': scrape_quotes_selenium,
+    'selenium scroll': scrape_infinite_scroll
     }
 
 # Sørg for at output mappen findes
