@@ -71,7 +71,7 @@ def scrape_quotes_selenium(query=None):
     runtime_ms = int((time.time()- start_time) * 1000)
 
     return {
-        "Country": "selenium scraper 1 pages",
+        "source": "selenium scraper 1 pages",
         "query": query if query else "Alle",
         "runtime_ms": runtime_ms,
         "results": data,

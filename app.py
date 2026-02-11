@@ -10,6 +10,14 @@ from scrapers.selenium_scrapers.selenium_scraper_1_pages import scrape_quotes_se
 
 app = Flask(__name__)
 
+SCRAPERS = {
+    'quotes': scrape_quotes,
+    'books': scrape_books,
+    'books advanced': scrape_books_advanced,
+    'country': country_scraper,
+    'selenium_quotes': scrape_quotes_selenium
+    }
+
 # Sørg for at output mappen findes
 OUTPUT_FOLDER = 'outputs'
 if not os.path.exists(OUTPUT_FOLDER):
@@ -18,29 +26,20 @@ if not os.path.exists(OUTPUT_FOLDER):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     data = None
-    
+
     if request.method == 'POST':
-        # 1. Hent input fra formen
         scraper_choice = request.form.get('scraper_choice')
         user_query = request.form.get('query')
 
-        # 2. Kør den valgte scraper
-        if scraper_choice == 'quotes':
-            data = scrape_quotes(user_query)
-        # Her ville du tilføje `elif scraper_choice == 'books': ...`
-        elif scraper_choice == 'books':
-            data = scrape_books(user_query)
-        elif scraper_choice == 'books advanced':
-            data = scrape_books_advanced(user_query)
-        elif scraper_choice == 'country':
-            data = country_scraper(user_query)
-        elif scraper_choice == 'selenium_quotes':
-            data = scrape_quotes_selenium(user_query)
+        scraper_function = SCRAPERS.get(scraper_choice)
+
+        if scraper_function:
+            data = scraper_function(user_query)
         else:
             data = {
-                "source": "Ukendt", 
-                "results": [], 
-                "runtime_ms": 0, 
+                "source": "Ukendt",
+                "result": [],
+                "runtime_ms": 0,
                 "errors": ["Scraper ikke implementeret endnu"]
             }
 
