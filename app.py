@@ -6,6 +6,7 @@ from scrapers.example_quotes import scrape_quotes
 from scrapers.mandag_books import scrape_books
 from scrapers.tirsdag_books import scrape_books_advanced
 from scrapers.country_scraper import country_scraper
+from scrapers.selenium_scrapers.selenium_scraper_1_pages import scrape_quotes_selenium
 
 app = Flask(__name__)
 
@@ -33,6 +34,8 @@ def index():
             data = scrape_books_advanced(user_query)
         elif scraper_choice == 'country':
             data = country_scraper(user_query)
+        elif scraper_choice == 'selenium_quotes':
+            data = scrape_quotes_selenium(user_query)
         else:
             data = {
                 "source": "Ukendt", 
